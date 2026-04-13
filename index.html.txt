@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Retro Tocho</title>
+
+<style>
+  body {
+    margin: 0;
+    background: #1e8f4d;
+    overflow: hidden;
+    touch-action: none;
+  }
+  canvas {
+    display: block;
+    margin: auto;
+    background: #2ecc71;
+  }
+  #ui {
+    position: fixed;
+    bottom: 15px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 12px;
+  }
+  button {
+    font-size: 18px;
+    padding: 12px 18px;
+    border-radius: 10px;
+    border: none;
+  }
+</style>
+</head>
+
+<body>
+
+<canvas id="game"></canvas>
+
+<div id="ui">
+  <button onclick="throwBall()">Lanzar</button>
+  <button onclick="switchQB()">Cambiar QB</button>
+</div>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+canvas.width = innerWidth;
+canvas.height = innerHeight;
+
+// QBs
+const qbs = [
+  { x: canvas.width/2 - 50, y: canvas.height-120, color:"#2980b9" },
+  { x: canvas.width/2 + 50, y: canvas.height-120, color:"#9b59b6" }
+];
+let activeQB = 0;
+
+// Movimiento
+let vx = 0, vy = 0;
+let sprint = false;
+let lastTap = 0;
+
+// Receptor
+const receiver = { x: canvas.width/2, y: 200, r: 16 };
+
+// Defensa
+const defender = { x: canvas.width/2, y: 140, r: 18, speed: 2 };
+
+// Balón
+let ball = null;
+
+// Controles táctiles
+canvas.addEventListener("touchstart", () => {
+  const now = Date.now();
+  if (now - lastTap < 300) {
+    vx *= -1.4;
+    vy *= -1.4;
+  }
+  lastTap = now;
+  sprint = true;
+});
+
+canvas.addEventListener("touchend", () => sprint = false);
+
+canvas.addEventListener("touchmove", e => {
+  const t = e.touches[0];
+  const qb = qbs[activeQB];
+  const dx = t.clientX - qb.x;
+  const dy = t.clientY - qb.y;
+  const d = Math.hypot(dx, dy);
+  if (d > 0) {
+    vx = dx / d;
+    vy = dy / d;
+  }
+});
+
+// Cambiar QB
+function switchQB() {
+  activeQB = activeQB === 0 ? 1 : 0;
+}
+
+// Lanzar pase
+function throwBall() {
+  const qb = qbs[activeQB];
+  ball = {
+    x: qb.x,
+    y: qb.y,
+    vx: (receiver.x - qb.x) / 15,
+    vy: (receiver.y - qb.y) / 15
+  };
+}
+
+// Lógica
+function update() {
+  const qb = qbs[activeQB];
+  const speed = sprint ? 6 : 4;
+
+  qb.x += vx * speed;
+  qb.y += vy * speed;
+
+  // Defensa sigue al QB
+  const dx = qb.x - defender.x;
+  const dy = qb.y - defender.y;
+  const d = Math.hypot(dx, dy);
+  defender.x += (dx / d) * defender.speed;
+  defender.y += (dy / d) * defender.speed;
+
+  // Movimiento del balón
+  if (ball) {
+    ball.x += ball.vx;
+    ball.y += ball.vy;
+    if (Math.hypot(ball.x - receiver.x, ball.y - receiver.y) < 20) {
+      alert("¡Recepción completa!");
+      ball = null;
+    }
+  }
+
+  draw();
+  requestAnimationFrame(update);
+}
+
+// Dibujo
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Yardas
+  ctx.setLineDash([10,10]);
+  ctx.strokeStyle = "#fff";
+  for (let i = 0; i < canvas.height; i += 80) {
+    ctx.beginPath();
+    ctx.moveTo(0, i);
+    ctx.lineTo(canvas.width, i);
+    ctx.stroke();
+  }
+
+  // QBs
+  ctx.setLineDash([]);
+  qbs.forEach((qb, i) => {
+    ctx.fillStyle = qb.color;
+    ctx.beginPath();
+    ctx.arc(qb.x, qb.y, 18, 0, Math.PI * 2);
+    ctx.fill();
+    if (i === activeQB) {
+      ctx.strokeStyle = "#f1c40f";
+      ctx.stroke();
+    }
+  });
+
+  // Receptor
+  ctx.fillStyle = "orange";
+  ctx.beginPath();
+  ctx.arc(receiver.x, receiver.y, receiver.r, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Defensa
+  ctx.fillStyle = "#c0392b";
+  ctx.beginPath();
+  ctx.arc(defender.x, defender.y, defender.r, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Balón
+  if (ball) {
+    ctx.fillStyle = "#000";
+    ctx.beginPath();
+    ctx.arc(ball.x, ball.y, 6, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+update();
+</script>
+
+</body>
+</html>
